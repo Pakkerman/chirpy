@@ -5,15 +5,21 @@ import (
 	"net/http"
 )
 
+type apiConfig struct {
+	fileserverHits int
+}
+
 func main() {
 	mux := http.NewServeMux()
-
-	mux.Handle("/app/*", http.StripPrefix("/app", http.FileServer(http.Dir("."))))
-	mux.HandleFunc("/healthz", healthz)
+	apiCfg := apiConfig{}
+	mux.Handle("/app/*", apiCfg.middlewareMatricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(".")))))
+	mux.HandleFunc("/healthz", handlerHealthz)
+	mux.HandleFunc("/metrics", apiCfg.handlerMetrics)
+	mux.HandleFunc("/reset", apiCfg.handlerReset)
 
 	server := &http.Server{
-		Handler: mux,
 		Addr:    "localhost:8080",
+		Handler: mux,
 	}
 
 	fmt.Println("starting server...")
@@ -23,8 +29,27 @@ func main() {
 	}
 }
 
-func healthz(w http.ResponseWriter, r *http.Request) {
+func handlerHealthz(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
+}
+
+func (apiCfg *apiConfig) middlewareMatricsInc(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		apiCfg.fileserverHits++
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (apiCfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Hits: %d", apiCfg.fileserverHits)))
+}
+
+func (apiCfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
+	apiCfg.fileserverHits = 0
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Reset hits to 0"))
 }
