@@ -17,7 +17,7 @@ func main() {
 	mux.Handle("/app/*", fsHandler)
 
 	mux.HandleFunc("GET /api/healthz", handlerHealthz)
-	mux.HandleFunc("GET /api/metrics", apiCfg.handlerMetrics)
+	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 	mux.HandleFunc("GET /api/reset", apiCfg.handlerReset)
 
 	server := &http.Server{
